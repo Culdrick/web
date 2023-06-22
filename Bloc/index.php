@@ -1,70 +1,177 @@
-<?php
-session_start();
-$notas = [];
-if (isset($_SESSION['notas'])) {
-    $notas = $_SESSION['notas'];
-}
-if (isset($_POST['guardar'])) {
-    $titulo = $_POST['titulo'];
-    $contenido = $_POST['contenido'];
-    $nota = ['titulo' => $titulo, 'contenido' => $contenido];
-    $notas[] = $nota;
-    $_SESSION['notas'] = $notas;
-}
-if (isset($_GET['editar'])) {
-    $indice = $_GET['editar'];
-    if (isset($notas[$indice])) {
-        $nota = $notas[$indice];
-    }
-}
-if (isset($_POST['actualizar'])) {
-    $indice = $_POST['indice'];
-    $titulo = $_POST['titulo'];
-    $contenido = $_POST['contenido'];
-    if (isset($notas[$indice])) {
-        $notas[$indice]['titulo'] = $titulo;
-        $notas[$indice]['contenido'] = $contenido;
-        $_SESSION['notas'] = $notas;
-    }
-}
-if (isset($_GET['borrar'])) {
-    $indice = $_GET['borrar'];
-    if (isset($notas[$indice])) {
-        unset($notas[$indice]);
-        $_SESSION['notas'] = $notas;
-    }
-}
-?>
 <!DOCTYPE html>
 <html>
 <head>
     <title>Blog de Notas</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        h2 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .note-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .note {
+            width: 300px;
+            margin: 10px;
+            padding: 10px;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+        .note-title {
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 5px;
+        }
+        .note-content {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        .note-actions {
+            text-align: center;
+        }
+        .note-actions button {
+            margin-top: 10px;
+            padding: 5px 10px;
+            border-radius: 3px;
+            background-color: #f44336;
+            color: #fff;
+            border: none;
+            cursor: pointer;
+        }
+        .note-actions button.edit {
+            background-color: #4caf50;
+        }
+        .note-actions button:hover {
+            opacity: 0.8;
+        }
+        .note-form {
+            text-align: center;
+            margin-top: 20px;
+        }
+        .note-form input[type="text"],
+        .note-form textarea {
+            margin-bottom: 10px;
+            padding: 5px;
+            font-size: 14px;
+            text-align: center;
+        }
+        .note-form input[type="submit"] {
+            padding: 5px 10px;
+            border-radius: 3px;
+            background-color: #4caf50;
+            color: #fff;
+            border: none;
+            cursor: pointer;
+        }
+        .note-form input[type="submit"]:hover {
+            opacity: 0.8;
+        }
+    </style>
 </head>
 <body>
-    <h1>Blog de Notas</h1>
-    <h2>Crear/Editar Nota</h2>
-    <form method="POST" action="">
-        <input type="hidden" name="indice" value="<?php echo isset($indice) ? $indice : ''; ?>">
-        <label for="titulo">Título:</label><br>
-        <input type="text" name="titulo" id="titulo" value="<?php echo isset($nota['titulo']) ? $nota['titulo'] : ''; ?>"><br>
-        <label for="contenido">Contenido:</label><br>
-        <textarea name="contenido" id="contenido" rows="5" cols="50"><?php echo isset($nota['contenido']) ? $nota['contenido'] : ''; ?></textarea><br>
-        <?php if (isset($indice)) { ?>
-            <input type="submit" name="actualizar" value="Actualizar Nota">
-        <?php } else { ?>
-            <input type="submit" name="guardar" value="Guardar Nota">
-        <?php } ?>
-    </form>
-    <h2>Notas</h2>
-    <ul>
-        <?php foreach ($notas as $indice => $nota) { ?>
-            <li>
-                <strong><?php echo $nota['titulo']; ?></strong>
-                <p><?php echo $nota['contenido']; ?></p>
-                <a href="index.php?editar=<?php echo $indice; ?>">Editar</a>
-                <a href="index.php?borrar=<?php echo $indice; ?>">Borrar</a>
-            </li>
-        <?php } ?>
-    </ul>
+    <h2>Blog de Notas</h2>
+
+    <?php
+    $notesDir = 'notes/';
+
+    // Función para obtener todas las notas
+    function getNotes() {
+        global $notesDir;
+
+        if (!file_exists($notesDir)) {
+            mkdir($notesDir, 0777, true);
+        }
+
+        $notes = [];
+
+        $files = array_diff(scandir($notesDir), array('.', '..'));
+        foreach ($files as $file) {
+            $noteContent = file_get_contents($notesDir . $file);
+            $notes[$file] = $noteContent;
+        }
+
+        return $notes;
+    }
+
+    // Guardar o actualizar una nota
+    if (isset($_POST['submit'])) {
+        $noteTitle = $_POST['note_title'];
+        $noteContent = $_POST['note_content'];
+
+        $noteFile = $notesDir . $noteTitle;
+
+        file_put_contents($noteFile, $noteContent);
+
+        echo "<p>Nota guardada correctamente.</p>";
+    }
+
+    // Eliminar una nota
+    if (isset($_POST['delete'])) {
+        $noteTitle = $_POST['note_title'];
+
+        $noteFile = $notesDir . $noteTitle;
+
+        if (file_exists($noteFile)) {
+            unlink($noteFile);
+            echo "<p>Nota eliminada correctamente.</p>";
+        } else {
+            echo "<p>No se pudo encontrar la nota.</p>";
+        }
+    }
+
+    // Mostrar todas las notas existentes
+    $notes = getNotes();
+    if (!empty($notes)) {
+        echo '<div class="note-container">';
+        foreach ($notes as $noteTitle => $noteContent) {
+            echo '<div class="note">
+                    <div class="note-title">' . $noteTitle . '</div>
+                    <div class="note-content">' . nl2br($noteContent) . '</div>
+                    <div class="note-actions">
+                        <form method="post" action="">
+                            <input type="hidden" name="note_title" value="' . $noteTitle . '">
+                            <button type="submit" name="delete">Eliminar</button>
+                            <button type="button" class="edit" onclick="editNote(\'' . $noteTitle . '\')">Editar</button>
+                        </form>
+                    </div>
+                </div>';
+        }
+        echo '</div>';
+    } else {
+        echo "<p>No hay notas disponibles.</p>";
+    }
+    ?>
+
+    <h2>Agregar nueva nota o editar una existente</h2>
+    <div class="note-form">
+        <form method="post" action="">
+            <input type="text" name="note_title" placeholder="Título de la nota" required>
+            <br>
+            <textarea name="note_content" placeholder="Escribe aquí tu nota..." required></textarea>
+            <br>
+            <input type="submit" name="submit" value="Guardar nota">
+            <button type="button" onclick="cancelEdit()">Cancelar</button>
+        </form>
+    </div>
+
+    <script>
+        function editNote(title) {
+            var form = document.querySelector('.note-form form');
+            form.elements['note_title'].value = title;
+            form.elements['note_content'].value = '<?php echo addslashes($notesDir); ?>' + title;
+        }
+
+        function cancelEdit() {
+            var form = document.querySelector('.note-form form');
+            form.elements['note_title'].value = '';
+            form.elements['note_content'].value = '';
+        }
+    </script>
 </body>
 </html>
