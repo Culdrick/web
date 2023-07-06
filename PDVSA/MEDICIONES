@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Mediciones de PSI - PDVSA</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+</head>
+<body>
+    <div class="container mt-5">
+        <h1>Mediciones de PSI - PDVSA</h1>
+
+        <?php
+        $servername = "localhost";
+        $username = "root";
+        $password = "";
+        $dbname = 'pdvsa';
+
+        $conn = new mysqli($servername, $username, $password, $dbname);
+        if ($conn->connect_error) {
+            die("Error de conexión: " . $conn->connect_error);
+        }
+
+        function guardarMedicion($fecha, $pozo, $valor, $conn) {
+            $sql = "INSERT INTO mediciones (fecha, pozo, valor) VALUES ('$fecha', '$pozo', $valor)";
+            $conn->query($sql);
+        }
+
+        function obtenerMediciones($pozo, $fechaInicio, $fechaFin, $conn) {
+            $sql = "SELECT * FROM mediciones WHERE pozo = '$pozo' AND fecha >= '$fechaInicio' AND fecha <= '$fechaFin' ORDER BY fecha ASC";
+            $result = $conn->query($sql);
+            $mediciones = array();
+
+            if ($result->num_rows > 0) {
+                while ($row = $result->fetch_assoc()) {
+                    $mediciones[] = $row;
+                }
+            }
+
+            return $mediciones;
+        }
+        
+
+        $sql = "SELECT DISTINCT pozo FROM mediciones";
+        $result = $conn->query($sql);
+        $pozos = array();
+
+        if ($result->num_rows > 0) {
+            while ($row = $result->fetch_assoc()) {
+                $pozos[] = $row['pozo'];
+            }
+        }
+        ?>
+        
+
+        <div class="row">
+            <div class="col-md-6">
+                <h2>Agregar Medición</h2>
+                <form method="POST" action="<?php echo $_SERVER['PHP_SELF']; ?>">
+                    <div class="form-group">
+                        <label for="fecha">Fecha:</label>
+                        <input type="datetime-local" class="form-control" id="fecha" name="fecha" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="pozo">Pozo:</label>
+                        <input type="text" class="form-control" id="pozo" name="pozo" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="valor">Valor (PSI):</label>
+                        <input type="number" class="form-control" id="valor" name="valor" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Agregar</button>
+                </form>
+            </div>
+
+
+            
+            <div class="col-md-6">
+                <h2>Gráfica Comparativa</h2>
+                <form method="POST" action="<?php echo $_SERVER['PHP_SELF']; ?>">
+                <div class="form-group">
+    <label for="pozoGrafica">Pozo:</label>
+    <select class="form-control" id="pozoGrafica" name="pozoGrafica" required>
+        <?php
+
+        $sqlPozos = "SELECT DISTINCT pozo FROM mediciones";
+        $resultPozos = $conn->query($sqlPozos);
+
+        if ($resultPozos->num_rows > 0) {
+            while ($rowPozo = $resultPozos->fetch_assoc()) {
+                $pozo = $rowPozo['pozo'];
+                echo '<option value="' . $pozo . '">' . $pozo . '</option>';
+            }
+        }
+        ?>
+    </select>
+</div>
+                    <div class="form-group">
+                        <label for="fechaInicio">Fecha de Inicio:</label>
+                        <input type="date" class="form-control" id="fechaInicio" name="fechaInicio" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="fechaFin">Fecha de Fin:</label>
+                        <input type="date" class="form-control" id="fechaFin" name="fechaFin" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Generar Gráfica</button>
+                </form>
+            </div>
+        </div>
+
+        <?php
+        
+        if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['fecha']) && isset($_POST['pozo']) && isset($_POST['valor'])) {
+            $fecha = $_POST['fecha'];
+            $pozo = $_POST['pozo'];
+            $valor = $_POST['valor'];
+
+            guardarMedicion($fecha, $pozo, $valor, $conn);
+            echo '<div class="alert alert-success mt-3">Medición agregada exitosamente.</div>';
+        }
+
+        
+        if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['pozoGrafica']) && isset($_POST['fechaInicio']) && isset($_POST['fechaFin'])) {
+            $pozoGrafica = $_POST['pozoGrafica'];
+            $fechaInicio = $_POST['fechaInicio'];
+            $fechaFin = $_POST['fechaFin'];
+
+            $mediciones = obtenerMediciones($pozoGrafica, $fechaInicio, $fechaFin, $conn);
+
+            if (!empty($mediciones)) {
+                $fechas = array();
+                $valores = array();
+
+                foreach ($mediciones as $medicion) {
+                    $fechas[] = $medicion['fecha'];
+                    $valores[] = $medicion['valor'];
+                }
+
+
+                
+                
+        echo '<h3>Gráfica de Mediciones del Pozo ' . $pozoGrafica . '</h3>';
+        echo '<canvas id="grafica"></canvas>';
+
+        echo '<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>';
+        echo '<script>';
+        echo 'var ctx = document.getElementById("grafica").getContext("2d");';
+        echo 'var myChart = new Chart(ctx, {';
+        echo '    type: "line",';
+        echo '    data: {';
+        echo '        labels: ' . json_encode($fechas) . ',';
+        echo '        datasets: [{';
+        echo '            label: "Valor (PSI)",';
+        echo '            data: ' . json_encode($valores) . ',';
+        echo '            fill: false,';
+        echo '            borderColor: "rgba(75, 192, 192, 1)",';
+        echo '            borderWidth: 1';
+        echo '        }]';
+        echo '    },';
+        echo '    options: {';
+        echo '        scales: {';
+        echo '            y: {';
+        echo '                beginAtZero: true';
+        echo '            }';
+        echo '        }';
+        echo '    }';
+        echo '});';
+        echo '</script>';
+    } else {
+        echo '<div class="alert alert-warning mt-3">No se encontraron mediciones para el pozo ' . $pozoGrafica . ' en el período seleccionado.</div>';
+    }
+}
+
+
+$sql = "SELECT * FROM mediciones ORDER BY fecha DESC";
+$result = $conn->query($sql);
+
+if ($result->num_rows > 0) {
+    echo '<h2>Histórico de Registros</h2>';
+    echo '<table class="table table-striped">';
+    echo '<thead>';
+    echo '<tr>';
+    echo '<th>Fecha y Hora</th>';
+    echo '<th>Pozo</th>';
+    echo '<th>Valor (PSI)</th>';
+    echo '</tr>';
+    echo '</thead>';
+    echo '<tbody>';
+
+    while ($row = $result->fetch_assoc()) {
+        echo '<tr>';
+        echo '<td>' . $row['fecha'] . '</td>';
+        echo '<td>' . $row['pozo'] . '</td>';
+        echo '<td>' . $row['valor'] . '</td>';
+        echo '</tr>';
+    }
+
+    echo '</tbody>';
+    echo '</table>';
+} else {
+    echo '<div class="alert alert-info mt-3">No se encontraron registros.</div>';
+}
+
+
+$conn->close();
+?>
+
+</div>
+
+<script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
+</body>
+</html>
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Eliminar Pozos - PDVSA</title>
+</head>
+<body>
+    <h1>Eliminar Pozos</h1>
+
+    <?php
+    
+    $servername = 'localhost';
+    $username = 'root';
+    $password = '';
+    $dbname = 'pdvsa';
+
+    $conn = new mysqli($servername, $username, $password, $dbname);
+    if ($conn->connect_error) {
+        die("Error de conexión: " . $conn->connect_error);
+    }
+
+
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['pozoEliminar'])) {
+        $pozoEliminar = $_POST['pozoEliminar'];
+
+        $sql = "DELETE FROM mediciones WHERE pozo = '$pozoEliminar'";
+        $conn->query($sql);
+
+        echo '<div>Pozo eliminado exitosamente.</div>';
+    }
+    ?>
+
+    <form method="POST" action="<?php echo $_SERVER['PHP_SELF']; ?>">
+        <select name="pozoEliminar">
+            <?php
+            $sql = "SELECT DISTINCT pozo FROM mediciones";
+            $result = $conn->query($sql);
+
+            if ($result->num_rows > 0) {
+                while ($row = $result->fetch_assoc()) {
+                    echo '<option value="' . $row['pozo'] . '">' . $row['pozo'] . '</option>';
+                }
+            }
+            ?>
+        </select>
+        <button type="submit">Eliminar</button>
+    </form>
+
+    <?php
+    $conn->close();
+    ?>
+</body>
+</html>
